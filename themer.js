@@ -16,6 +16,15 @@ function themer() {
 		values = JSON.parse(valuesjson)
 	}
 
+	if(!values['profile']) {
+		values['profile'] = 0
+	}
+	if(!values['profiles']) {
+		values['profiles'] = [{'title':'Profile'}]
+	}
+
+	var profile = values['profiles'][0]
+
 	var save = function() {
 		//console.log("saving values", values)
 		localStorage.setItem('themer', JSON.stringify(values))
@@ -28,21 +37,21 @@ function themer() {
 		}
 		var v = rootStyles.getPropertyValue(k).trim()
 		originals[k] = v
-		if(!values[k]) {
-			values[k] = v
+		if(!profile[k]) {
+			profile[k] = v
 		}
 	})
 
 	var apply = function() {
 		//console.log("applying values", values)
-		Object.keys(values).forEach(function(k) {
+		Object.keys(profile).forEach(function(k) {
 			if(k.length < 2 || k.substr(0, 2) != "--") {
 				return
 			}
-			rootStyles.setProperty(k, values[k])
+			rootStyles.setProperty(k, profile[k])
 
-			if(values[k] && values[k].substr(0, 1) == '#') {
-				var rgb = css2rgb(values[k])
+			if(profile[k] && profile[k].substr(0, 1) == '#') {
+				var rgb = css2rgb(profile[k])
 				var hsl = rgb2hsl(rgb)
 
 				for(var i = 0; i < colorbuckets; i++) {
@@ -71,13 +80,13 @@ function themer() {
 
 	var reset = function() {
 		//console.log("resetting values", originals)
-		Object.keys(values).forEach(function(k) {
-			if(k != 'open') {
-				delete values[k]
+		Object.keys(profile).forEach(function(k) {
+			if(k.length >= 2 && k.substr(0, 2) == '--') {
+				delete profile[k]
 			}
 		})
 		Object.keys(originals).forEach(function(k) {
-			values[k] = originals[k]
+			profile[k] = originals[k]
 		})
 		apply()
 		save()
@@ -104,12 +113,12 @@ function themer() {
 
 		var reexplain = function() {
 			var txt = ''
-			Object.keys(values).forEach(function(k) {
+			Object.keys(profile).forEach(function(k) {
 				if(k.length < 2 || k.substr(0, 2) != "--") {
 					return
 				}
-				if(values[k] != originals[k]) {
-					txt += "\t" + k + ": " + values[k] + ";\n"
+				if(profile[k] != originals[k]) {
+					txt += "\t" + k + ": " + profile[k] + ";\n"
 				}
 			})
 			if(txt.length > 0) {
@@ -133,11 +142,98 @@ function themer() {
 
 		var resetbutton = document.createElement('button')
 		resetbutton.style.opacity = 0.25
-		resetbutton.appendChild(document.createTextNode('Reset To Defaults'))
+		resetbutton.appendChild(document.createTextNode('Reset'))
 		resetbutton.addEventListener('click', function(ev) {
 			reset()
 		})
 		div.appendChild(resetbutton)
+
+		var delbutton = document.createElement('button')
+		delbutton.style.opacity = 0.25
+		delbutton.appendChild(document.createTextNode('Delete'))
+		delbutton.addEventListener('click', function(ev) {
+			save()
+
+			if(values.profiles.length == 1) {
+				reset()
+				profile.title = 'Profile'
+				save()
+				apply()
+				if(values['open']) {
+					togglethemer() // hide
+					togglethemer() // show
+				}
+				return
+			}
+			var newprofiles = []
+			for(var i = 0; i < values.profiles.length; i++) {
+				if(i != values.profile) {
+					newprofiles.push(values.profiles[i])
+				}
+			}
+			if(values.profile > 0) {
+				values.profile--
+			}
+			values.profiles = newprofiles
+			profile = values.profiles[values.profile]
+			save()
+			apply()
+			if(values['open']) {
+				togglethemer() // hide
+				togglethemer() // show
+			}
+		})
+		div.appendChild(delbutton)
+
+		div.appendChild(document.createTextNode(' '))
+
+		for(var i = 0; i < values.profiles.length; i++) {
+			var pbutton = document.createElement('button')
+			if(i != values.profile) {
+				pbutton.style.opacity = 0.25
+			}
+			pbutton.appendChild(document.createTextNode(values.profiles[i].title))
+			pbutton.addEventListener('click', (function(ii) {
+				return function(ev) {
+					if(ev.shiftKey) {
+						var val = window.prompt('Profile title:', values.profiles[ii].title)
+						values.profiles[ii].title = val
+					} else {
+						save()
+						values.profile = ii
+						profile = values.profiles[ii]
+						apply()
+					}
+					if(values['open']) {
+						togglethemer() // hide
+						togglethemer() // show
+					}
+				}
+			})(i))
+			pbutton.addEventListener('doubleclick', (function(ii) {
+				return function(ev) {
+				}
+			})(i))
+			div.appendChild(pbutton)
+		}
+
+		var newpbutton = document.createElement('button')
+		newpbutton.appendChild(document.createTextNode('+'))
+		newpbutton.style.opacity = 0.25
+		newpbutton.addEventListener('click', function(ev) {
+			var newp = {'title': 'Copy of ' + profile.title}
+			values.profiles.push(newp)
+			Object.keys(profile).forEach(function(k) {
+				if(k.length >= 2 && k.substr(0, 2) == '--') {
+					newp[k] = profile[k]
+				}
+			})
+			if(values['open']) {
+				togglethemer() // hide
+				togglethemer() // show
+			}
+		})
+		div.appendChild(newpbutton)
 
 		var rootStyles = document.styleSheets[0].cssRules[0].style
 
@@ -183,7 +279,7 @@ function themer() {
 
 			if(setoriginals) {
 				originals[v] = val
-				values[v] = val
+				profile[v] = val
 			}
 
 			var tr = document.createElement('tr')
@@ -215,7 +311,7 @@ function themer() {
 					subdiv.className = 'themer-color'
 					subdiv.addEventListener('change', (function(name) {
 						return function(ev) {
-							values[name] = ev.target.value
+							profile[name] = ev.target.value
 							recolor(input.value)
 							apply()
 							reexplain()
@@ -240,7 +336,7 @@ function themer() {
 						var defaultcss = rgb2css(hsl2rgb(newhsl))
 						var newcss = defaultcss
 
-						var override = values[name]
+						var override = profile[name]
 
 						if(override && override != defaultcss) {
 							var overridehsl = rgb2hsl(css2rgb(override))
@@ -250,10 +346,10 @@ function themer() {
 
 						if(newcss != defaultcss) {
 							subdivs[i].className = 'themer-color themer-color-override'
-							values[name] = newcss
+							profile[name] = newcss
 						} else {
 							subdivs[i].className = 'themer-color'
-							delete values[name]
+							delete profile[name]
 						}
 
 						subdivs[i].value = newcss
@@ -272,7 +368,7 @@ function themer() {
 			}
 			input.setAttribute('value', val)
 			input.addEventListener('change', function(ev) {
-				values[v] = input.value
+				profile[v] = input.value
 				apply()
 				reexplain()
 				save()
