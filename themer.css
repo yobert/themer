@@ -33,6 +33,10 @@
 	border-radius: 0.3rem;
 }
 
+.themer-color-override {
+	border-bottom: 2px solid black;
+}
+
 .themer-explain {
 	margin: 0;
 	padding: 0;

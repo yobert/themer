@@ -46,11 +46,11 @@ function themer() {
 				var hsl = rgb2hsl(rgb)
 
 				for(var i = 0; i < colorbuckets; i++) {
-					var name = Math.round((i+1) / (colorbuckets+1) * 100)
+					var name = k+"-"+Math.round((i+1) / (colorbuckets+1) * 100)
 					var lum = (i + 1) / (colorbuckets + 1)
 					var newhsl = [hsl[0], hsl[1], lum]
 
-					rootStyles.setProperty(k+"-"+name, rgb2css(hsl2rgb(newhsl)))
+					rootStyles.setProperty(name, rgb2css(hsl2rgb(newhsl)))
 				}
 			}
 		})
@@ -71,6 +71,11 @@ function themer() {
 
 	var reset = function() {
 		//console.log("resetting values", originals)
+		Object.keys(values).forEach(function(k) {
+			if(k != 'open') {
+				delete values[k]
+			}
+		})
 		Object.keys(originals).forEach(function(k) {
 			values[k] = originals[k]
 		})
@@ -99,12 +104,12 @@ function themer() {
 
 		var reexplain = function() {
 			var txt = ''
-			Object.keys(originals).forEach(function(k) {
+			Object.keys(values).forEach(function(k) {
 				if(k.length < 2 || k.substr(0, 2) != "--") {
 					return
 				}
 				if(values[k] != originals[k]) {
-					txt += "\t" + k + ": " + values[k] + "\n"
+					txt += "\t" + k + ": " + values[k] + ";\n"
 				}
 			})
 			if(txt.length > 0) {
@@ -199,37 +204,68 @@ function themer() {
 
 				var subdivs = []
 
+				var recolor;
+
 				for(var i = 0; i < colorbuckets; i++) {
+					var name = v+"-"+Math.round((i+1) / (colorbuckets+1) * 100)
 
 					td = document.createElement('td')
 					var subdiv = document.createElement('input')
 					subdiv.setAttribute('type', 'color')
 					subdiv.className = 'themer-color'
-//					subdiv.appendChild(document.createTextNode(i))
+					subdiv.addEventListener('change', (function(name) {
+						return function(ev) {
+							values[name] = ev.target.value
+							recolor(input.value)
+							apply()
+							reexplain()
+							save()
+						}
+					})(name))
 					subdivs.push(subdiv)
 					td.appendChild(subdiv)
 					tr.appendChild(td)
 				}
 
-				var colors = function(val) {
+				var recolor = function(val) {
 					var rgb = css2rgb(val)
 					var hsl = rgb2hsl(rgb)
 
 					var max = subdivs.length
-					for(var i = 0; i < subdivs.length; i++) {
-						var lum = (i + 1) / (subdivs.length + 1)
-						var newhsl = [hsl[0], hsl[1], lum]
+					for(var i = 0; i < colorbuckets; i++) {
+						var name = v+"-"+Math.round((i+1) / (colorbuckets+1) * 100)
 
-						subdivs[i].value = rgb2css(hsl2rgb(newhsl))
+						var lum = (i + 1) / (colorbuckets + 1)
+						var newhsl = [hsl[0], hsl[1], lum]
+						var defaultcss = rgb2css(hsl2rgb(newhsl))
+						var newcss = defaultcss
+
+						var override = values[name]
+
+						if(override && override != defaultcss) {
+							var overridehsl = rgb2hsl(css2rgb(override))
+							newhsl[2] = overridehsl[2]
+							newcss = rgb2css(hsl2rgb(newhsl))
+						}
+
+						if(newcss != defaultcss) {
+							subdivs[i].className = 'themer-color themer-color-override'
+							values[name] = newcss
+						} else {
+							subdivs[i].className = 'themer-color'
+							delete values[name]
+						}
+
+						subdivs[i].value = newcss
 					}
 				}
 
 				var coloronchange = function(ev) {
-					colors(input.value)
+					recolor(input.value)
 				}
 
 				input.addEventListener('change', coloronchange)
-				colors(val)
+				recolor(val)
 			} else {
 				td.setAttribute('colspan', 10)
 				input.className = 'themer-text'
@@ -237,8 +273,8 @@ function themer() {
 			input.setAttribute('value', val)
 			input.addEventListener('change', function(ev) {
 				values[v] = input.value
-				reexplain()
 				apply()
+				reexplain()
 				save()
 			})
 			tbody.appendChild(tr)
@@ -284,54 +320,56 @@ function hsl2rgb(hsl) {
 }*/
 
 var hsl2rgb = function(hsl){
-  var hue = hsl[0], saturation = hsl[1], lightness = hsl[2]
+	var hue = hsl[0], saturation = hsl[1], lightness = hsl[2]
 
-  var chroma = (1 - Math.abs((2 * lightness) - 1)) * saturation;
-  var huePrime = hue / 60;
-  var secondComponent = chroma * (1 - Math.abs((huePrime % 2) - 1));
+	hue *= 360
 
-  huePrime = Math.floor(huePrime);
-  var red;
-  var green;
-  var blue;
+	var chroma = (1 - Math.abs((2 * lightness) - 1)) * saturation;
+	var huePrime = hue / 60;
+	var secondComponent = chroma * (1 - Math.abs((huePrime % 2) - 1));
 
-  if( huePrime === 0 ){
-    red = chroma;
-    green = secondComponent;
-    blue = 0;
-  }else if( huePrime === 1 ){
-    red = secondComponent;
-    green = chroma;
-    blue = 0;
-  }else if( huePrime === 2 ){
-    red = 0;
-    green = chroma;
-    blue = secondComponent;
-  }else if( huePrime === 3 ){
-    red = 0;
-    green = secondComponent;
-    blue = chroma;
-  }else if( huePrime === 4 ){
-    red = secondComponent;
-    green = 0;
-    blue = chroma;
-  }else if( huePrime === 5 ){
-    red = chroma;
-    green = 0;
-    blue = secondComponent;
-  }
+	huePrime = Math.floor(huePrime);
+	var red;
+	var green;
+	var blue;
 
-  var lightnessAdjustment = lightness - (chroma / 2);
-  red += lightnessAdjustment;
-  green += lightnessAdjustment;
-  blue += lightnessAdjustment;
+	if( huePrime === 0 ){
+		red = chroma;
+		green = secondComponent;
+		blue = 0;
+	}else if( huePrime === 1 ){
+		red = secondComponent;
+		green = chroma;
+		blue = 0;
+	}else if( huePrime === 2 ){
+		red = 0;
+		green = chroma;
+		blue = secondComponent;
+	}else if( huePrime === 3 ){
+		red = 0;
+		green = secondComponent;
+		blue = chroma;
+	}else if( huePrime === 4 ){
+		red = secondComponent;
+		green = 0;
+		blue = chroma;
+	}else if( huePrime === 5 ){
+		red = chroma;
+		green = 0;
+		blue = secondComponent;
+	}
 
-  return [red, green, blue]
+	var lightnessAdjustment = lightness - (chroma / 2);
+	red += lightnessAdjustment;
+	green += lightnessAdjustment;
+	blue += lightnessAdjustment;
+
+	return [red, green, blue]
 
 };
 
 
-function rgb2hsl(rgb){
+/*function rgb2hsl(rgb){
 	var r = rgb[0], g = rgb[1], b = rgb[2]
 	var max = Math.max(r, g, b)
 	var min = Math.min(r, g, b)
@@ -350,6 +388,29 @@ function rgb2hsl(rgb){
 	}
 
 	return [h, s, l]
+}*/
+function rgb2hsl(rgb) {
+	var r = rgb[0], g = rgb[1], b = rgb[2]
+	var max = Math.max(r, g, b)
+	var min = Math.min(r, g, b);
+	var h, s, l = (max + min) / 2;
+
+	if (max == min) {
+		h = s = 0; // achromatic
+	} else {
+		var d = max - min;
+		s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+		switch (max) {
+			case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+			case g: h = (b - r) / d + 2; break;
+			case b: h = (r - g) / d + 4; break;
+		}
+
+		h /= 6;
+	}
+
+	return [ h, s, l ];
 }
 
 function css2rgb(s) {
@@ -386,6 +447,39 @@ function float2hex(v) {
 
 
 function tests() {
+	var css2hsltests = [
+		['#e81756', [342 / 360, 0.82, 0.50]],
+		['#44352c', [ 23 / 360, 0.21, 0.22]],
+		['#ff0000', [  0 / 360, 1.00, 0.50]],
+		['#00ff00', [120 / 360, 1.00, 0.50]],
+		['#0000ff', [240 / 360, 1.00, 0.50]],
+	]
+
+	var cmp = function(a, b) {
+		if(Math.abs(a - b) < 0.01) {
+			return true
+		}
+		return false
+	}
+	var cmp3 = function(a, b) {
+		if(cmp(a[0], b[0]) && cmp(a[1], b[1]) && cmp(a[2], b[2])) {
+			return true
+		}
+		return false
+	}
+
+	Object.values(css2hsltests).forEach(function(t) {
+		var hsl = rgb2hsl(css2rgb(t[0]))
+		if(!cmp3(hsl, t[1])) {
+			console.log("test failure: color", t[0], "should calculate hsl", t[1], "but we got", hsl)
+		}
+
+		var css = rgb2css(hsl2rgb(t[1]))
+		if(css != t[0]) {
+			console.log("test failure: hsl", t[1], "should calculate color", t[0], "but we got", css)
+		}
+	})
+
 /*	console.log(float2hex(0))
 	console.log(float2hex(0.5))
 	console.log(float2hex(1))
