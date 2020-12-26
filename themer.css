@@ -1,0 +1,43 @@
+.themer-text {
+	box-sizing: border-box;
+	width: 100%;
+}
+.themer-color {
+	box-sizing: border-box;
+
+	margin: 0;
+	padding: 0;
+	width: 4rem;
+	height: 2rem;
+	border-color: transparent;
+	display: inline-block;
+
+	background-color: transparent;
+}
+.themer-color:focus {
+	border-color: #4ae;
+	background-color: #4ae;
+}
+.themer-color::-moz-color-swatch-wrapper {
+	padding: 0;
+}
+.themer-color::-webkit-color-swatch-wrapper {
+	padding: 0;
+}
+.themer-color::-moz-color-swatch {
+	border: none;
+	border-radius: 0.3rem;
+}
+.themer-color::-webkit-color-swatch {
+	border: none;
+	border-radius: 0.3rem;
+}
+
+.themer-explain {
+	margin: 0;
+	padding: 0;
+	white-space: pre-wrap;
+	font-family: monospace;
+	color: black;
+	background-color: #eee;
+}

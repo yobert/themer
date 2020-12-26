@@ -1,0 +1,413 @@
+(function(){
+window.themer = themer
+
+
+
+
+function themer() {
+	var colorbuckets = 9
+
+	var div
+	var originals = {};
+	var values = {};
+
+	var valuesjson = localStorage.getItem('themer')
+	if(valuesjson) {
+		values = JSON.parse(valuesjson)
+	}
+
+	var save = function() {
+		//console.log("saving values", values)
+		localStorage.setItem('themer', JSON.stringify(values))
+	}
+
+	var rootStyles = document.styleSheets[0].cssRules[0].style
+	Object.values(rootStyles).forEach(function(k) {
+		if(k.length < 2 || k.substr(0, 2) != "--") {
+			return
+		}
+		var v = rootStyles.getPropertyValue(k).trim()
+		originals[k] = v
+		if(!values[k]) {
+			values[k] = v
+		}
+	})
+
+	var apply = function() {
+		//console.log("applying values", values)
+		Object.keys(values).forEach(function(k) {
+			if(k.length < 2 || k.substr(0, 2) != "--") {
+				return
+			}
+			rootStyles.setProperty(k, values[k])
+
+			if(values[k] && values[k].substr(0, 1) == '#') {
+				var rgb = css2rgb(values[k])
+				var hsl = rgb2hsl(rgb)
+
+				for(var i = 0; i < colorbuckets; i++) {
+					var name = Math.round((i+1) / (colorbuckets+1) * 100)
+					var lum = (i + 1) / (colorbuckets + 1)
+					var newhsl = [hsl[0], hsl[1], lum]
+
+					rootStyles.setProperty(k+"-"+name, rgb2css(hsl2rgb(newhsl)))
+				}
+			}
+		})
+	}
+
+	apply()
+
+	document.body.addEventListener("keydown", function(ev) {
+		if(ev.keyCode != 113) {
+			return
+		}
+		ev.preventDefault()
+		ev.stopPropagation()
+		togglethemer()
+	})
+
+	var togglethemer
+
+	var reset = function() {
+		//console.log("resetting values", originals)
+		Object.keys(originals).forEach(function(k) {
+			values[k] = originals[k]
+		})
+		apply()
+		save()
+		if(values['open']) {
+			togglethemer() // hide
+			togglethemer() // show
+		}
+	}
+
+	togglethemer = function() {
+		if(div) {
+			values['open'] = false
+			save()
+			div.parentNode.removeChild(div)
+			div = undefined
+			return
+		}
+
+		values['open'] = true
+		save()
+
+		var explaindiv = document.createElement('div')
+		explaindiv.className = 'themer-explain'
+
+		var reexplain = function() {
+			var txt = ''
+			Object.keys(originals).forEach(function(k) {
+				if(k.length < 2 || k.substr(0, 2) != "--") {
+					return
+				}
+				if(values[k] != originals[k]) {
+					txt += "\t" + k + ": " + values[k] + "\n"
+				}
+			})
+			if(txt.length > 0) {
+				txt = "\n" + txt + "\n" // just make it easier to select for copy/paste
+				explaindiv.style.display = 'block'
+			} else {
+				explaindiv.style.display = 'none'
+			}
+			explaindiv.innerHTML = ''
+			explaindiv.appendChild(document.createTextNode(txt))
+		}
+
+		div = document.createElement("div")
+		div.style.position = 'fixed'
+
+		div.style.top = 0
+		div.style.left = 0
+
+		div.style.zIndex = 666
+		div.style.backgroundColor = '#ffffff'
+
+		var resetbutton = document.createElement('button')
+		resetbutton.style.opacity = 0.25
+		resetbutton.appendChild(document.createTextNode('Reset To Defaults'))
+		resetbutton.addEventListener('click', function(ev) {
+			reset()
+		})
+		div.appendChild(resetbutton)
+
+		var rootStyles = document.styleSheets[0].cssRules[0].style
+
+		var table = document.createElement('table')
+		table.style.margin = '1rem'
+		table.setAttribute('border', 0)
+		table.setAttribute('cellpadding', 0)
+		table.setAttribute('cellspacing', 0)
+		var tbody = document.createElement('tbody')
+		table.appendChild(tbody)
+
+		var tr = document.createElement('tr')
+		var th = document.createElement('th')
+		th.appendChild(document.createTextNode('Name'))
+		tr.appendChild(th)
+
+		th = document.createElement('th')
+		th.appendChild(document.createTextNode('Value'))
+		tr.appendChild(th)
+
+		for(var i = 0; i < colorbuckets; i++) {
+			th = document.createElement('th')
+			th.appendChild(document.createTextNode(Math.round((i+1) / (colorbuckets+1) * 100)))
+			tr.appendChild(th)
+		}
+		tbody.appendChild(tr)
+
+		var setoriginals = false
+		if(!originals) {
+			originals = {}
+			setoriginals = true
+		}
+
+		Object.values(rootStyles).forEach(function(v) {
+			if(v.substr(0, 2) != "--") {
+				return
+			}
+			if(v.match(/\-\d+$/)) {
+				return
+			}
+
+			var val = rootStyles.getPropertyValue(v).trim()
+
+			if(setoriginals) {
+				originals[v] = val
+				values[v] = val
+			}
+
+			var tr = document.createElement('tr')
+			var td = document.createElement('td')
+			td.style.paddingRight = '1rem'
+			td.appendChild(document.createTextNode(v.substr(2)))
+			tr.appendChild(td)
+
+			td = document.createElement('td')
+			var input = document.createElement('input')
+			td.appendChild(input)
+			tr.appendChild(td)
+			if(val.length > 0 && val.substr(0, 1) == '#') {
+				// color mode!
+				input.setAttribute('type', 'color')
+				input.className = 'themer-color'
+				td.style.borderRight = '2px solid black'
+
+				var subdivs = []
+
+				for(var i = 0; i < colorbuckets; i++) {
+
+					td = document.createElement('td')
+					var subdiv = document.createElement('input')
+					subdiv.setAttribute('type', 'color')
+					subdiv.className = 'themer-color'
+//					subdiv.appendChild(document.createTextNode(i))
+					subdivs.push(subdiv)
+					td.appendChild(subdiv)
+					tr.appendChild(td)
+				}
+
+				var colors = function(val) {
+					var rgb = css2rgb(val)
+					var hsl = rgb2hsl(rgb)
+
+					var max = subdivs.length
+					for(var i = 0; i < subdivs.length; i++) {
+						var lum = (i + 1) / (subdivs.length + 1)
+						var newhsl = [hsl[0], hsl[1], lum]
+
+						subdivs[i].value = rgb2css(hsl2rgb(newhsl))
+					}
+				}
+
+				var coloronchange = function(ev) {
+					colors(input.value)
+				}
+
+				input.addEventListener('change', coloronchange)
+				colors(val)
+			} else {
+				td.setAttribute('colspan', 10)
+				input.className = 'themer-text'
+			}
+			input.setAttribute('value', val)
+			input.addEventListener('change', function(ev) {
+				values[v] = input.value
+				reexplain()
+				apply()
+				save()
+			})
+			tbody.appendChild(tr)
+		})
+
+		div.appendChild(table)
+
+		div.appendChild(explaindiv)
+		reexplain()
+
+		document.body.appendChild(div)
+	}
+
+	if(values['open']) {
+		togglethemer()
+	}
+}
+
+/*function hue2rgb(p, q, t) {
+	if(t < 0) t += 1
+	if(t > 1) t -= 1
+	if(t < 1/6) return p + (q - p) * 6 * t
+	if(t < 1/2) return q
+	if(t < 2/3) return p + (q - p) * (2/3 - t) * 6
+	return p;
+}
+
+function hsl2rgb(hsl) {
+	var h = hsl[0], s = hsl[1], l = hsl[2]
+	var r, g, b
+
+	if(s == 0){
+		r = g = b = l
+	}else{
+		var q = l < 0.5 ? l * (1 + s) : l + s - l * s
+		var p = 2 * l - q
+		r = hue2rgb(p, q, h + 1/3)
+		g = hue2rgb(p, q, h)
+		b = hue2rgb(p, q, h - 1/3)
+	}
+
+	return [r, g, b]
+}*/
+
+var hsl2rgb = function(hsl){
+  var hue = hsl[0], saturation = hsl[1], lightness = hsl[2]
+
+  var chroma = (1 - Math.abs((2 * lightness) - 1)) * saturation;
+  var huePrime = hue / 60;
+  var secondComponent = chroma * (1 - Math.abs((huePrime % 2) - 1));
+
+  huePrime = Math.floor(huePrime);
+  var red;
+  var green;
+  var blue;
+
+  if( huePrime === 0 ){
+    red = chroma;
+    green = secondComponent;
+    blue = 0;
+  }else if( huePrime === 1 ){
+    red = secondComponent;
+    green = chroma;
+    blue = 0;
+  }else if( huePrime === 2 ){
+    red = 0;
+    green = chroma;
+    blue = secondComponent;
+  }else if( huePrime === 3 ){
+    red = 0;
+    green = secondComponent;
+    blue = chroma;
+  }else if( huePrime === 4 ){
+    red = secondComponent;
+    green = 0;
+    blue = chroma;
+  }else if( huePrime === 5 ){
+    red = chroma;
+    green = 0;
+    blue = secondComponent;
+  }
+
+  var lightnessAdjustment = lightness - (chroma / 2);
+  red += lightnessAdjustment;
+  green += lightnessAdjustment;
+  blue += lightnessAdjustment;
+
+  return [red, green, blue]
+
+};
+
+
+function rgb2hsl(rgb){
+	var r = rgb[0], g = rgb[1], b = rgb[2]
+	var max = Math.max(r, g, b)
+	var min = Math.min(r, g, b)
+	var h, s, l = (max + min) / 2
+
+	if(max == min){
+		h = s = 0
+	}else{
+		var d = max - min
+		s = l >= 0.5 ? d / (2 - (max + min)) : d / (max + min)
+		switch(max){
+			case r: h = ((g - b) / d + 0)*60; break
+			case g: h = ((b - r) / d + 2)*60; break
+			case b: h = ((r - g) / d + 4)*60; break
+		}
+	}
+
+	return [h, s, l]
+}
+
+function css2rgb(s) {
+	if(s.length < 1) {
+		return
+	}
+	if(s.substr(0, 1) == '#') {
+		s = s.substr(1)
+		if(s.length == 3) {
+			s = s[0]+s[0]+s[1]+s[1]+s[2]+s[2]
+		}
+		if(s.length != 6) {
+			return
+		}
+		var r = [0, 0, 0]
+		for(var i = 0; i < 3; i++) {
+			var v = parseInt(s[i*2]+s[i*2+1], 16)
+			r[i] = v / 255.0
+		}
+		return r
+	}
+	return
+}
+
+function rgb2css(rgb) {
+	return '#'+float2hex(rgb[0])+float2hex(rgb[1])+float2hex(rgb[2])
+}
+
+function float2hex(v) {
+	v *= 255
+	v = Math.round(Math.min(Math.max(v, 0), 255))
+	return ('0'+v.toString(16)).slice(-2)
+}
+
+
+function tests() {
+/*	console.log(float2hex(0))
+	console.log(float2hex(0.5))
+	console.log(float2hex(1))
+	console.log(css2rgb("#f00"))
+	console.log(rgb2css(css2rgb("#f00")))
+	console.log(rgb2css(css2rgb("#aabbcc")))
+	console.log(rgb2css(css2rgb("#fff")))
+
+	console.log(rgb2hsl([1, 0, 0]))
+	console.log(rgb2hsl([1, 0.9, 0.9]))
+	console.log(rgb2hsl([0.1, 0, 0]))
+
+	console.log(rgb2hsl([1, 0, 0]))
+	console.log(rgb2hsl([0, 1, 0]))
+	console.log(rgb2hsl([0, 0, 1]))
+
+	console.log(hsl2rgb(rgb2hsl([1, 0, 0])))
+	console.log(hsl2rgb(rgb2hsl([0, 1, 0])))
+	console.log(hsl2rgb(rgb2hsl([0, 0, 1])))
+*/	
+}
+
+tests()
+
+})()
