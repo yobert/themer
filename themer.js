@@ -23,7 +23,7 @@ function themer() {
 		values['profiles'] = [{'title':'Profile'}]
 	}
 
-	var profile = values['profiles'][0]
+	var profile = values['profiles'][values['profile']]
 
 	var save = function() {
 		//console.log("saving values", values)
