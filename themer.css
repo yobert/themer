@@ -1,3 +1,16 @@
+.themer-overlay {
+	z-index: 666;
+	position: fixed;
+	top: 0;
+	left: 0;
+	color: black;
+	background-color: white;
+}
+.themer-overlay input,
+.themer-overlay button {
+}
+.themer-overlay input[type=color] {
+}
 .themer-text {
 	box-sizing: border-box;
 	width: 100%;
@@ -31,6 +44,9 @@
 .themer-color::-webkit-color-swatch {
 	border: none;
 	border-radius: 0.3rem;
+}
+.themer-lum {
+	display: inline;
 }
 
 .themer-color-override {

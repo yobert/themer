@@ -5,7 +5,10 @@ window.themer = themer
 
 
 function themer() {
-	var colorbuckets = 9
+	//return;
+
+	var bucketlums = [2, 5, 7, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+	var colorbuckets = bucketlums.length
 
 	var div
 	var originals = {};
@@ -55,10 +58,18 @@ function themer() {
 				var hsl = rgb2hsl(rgb)
 
 				for(var i = 0; i < colorbuckets; i++) {
-					var name = k+"-"+Math.round((i+1) / (colorbuckets+1) * 100)
-					var lum = (i + 1) / (colorbuckets + 1)
-					var newhsl = [hsl[0], hsl[1], lum]
+					var name = k+"-"+numpad(bucketlums[i])
+					var light = bucketlums[i] / 100
+					var newhsl = [hsl[0], hsl[1], light]
 
+					newhsl = hsl_set_luma(newhsl, light)
+
+					//var txthsl = hsl_set_contrast(newhsl, 7)
+					//var bighsl = hsl_set_contrast(newhsl, 4.5)
+					//var maxhsl = hsl_set_contrast(newhsl, 40)
+					//rootStyles.setProperty(name+"-txt", rgb2css(hsl2rgb(txthsl)))
+					//rootStyles.setProperty(name+"-big", rgb2css(hsl2rgb(bighsl)))
+					//rootStyles.setProperty(name+"-max", rgb2css(hsl2rgb(maxhsl)))
 					rootStyles.setProperty(name, rgb2css(hsl2rgb(newhsl)))
 				}
 			}
@@ -132,13 +143,7 @@ function themer() {
 		}
 
 		div = document.createElement("div")
-		div.style.position = 'fixed'
-
-		div.style.top = 0
-		div.style.left = 0
-
-		div.style.zIndex = 666
-		div.style.backgroundColor = '#ffffff'
+		div.className = 'themer-overlay'
 
 		var resetbutton = document.createElement('button')
 		resetbutton.style.opacity = 0.25
@@ -256,7 +261,7 @@ function themer() {
 
 		for(var i = 0; i < colorbuckets; i++) {
 			th = document.createElement('th')
-			th.appendChild(document.createTextNode(Math.round((i+1) / (colorbuckets+1) * 100)))
+			th.appendChild(document.createTextNode(numpad(bucketlums[i])))
 			tr.appendChild(th)
 		}
 		tbody.appendChild(tr)
@@ -271,7 +276,7 @@ function themer() {
 			if(v.substr(0, 2) != "--") {
 				return
 			}
-			if(v.match(/\-\d+$/)) {
+			if(v.match(/\-\d+$/) || v.match(/\-\d+\-[a-z]{3}$/)) {
 				return
 			}
 
@@ -299,11 +304,12 @@ function themer() {
 				td.style.borderRight = '2px solid black'
 
 				var subdivs = []
+				var lumdivs = []
 
 				var recolor;
 
 				for(var i = 0; i < colorbuckets; i++) {
-					var name = v+"-"+Math.round((i+1) / (colorbuckets+1) * 100)
+					var name = v+"-"+numpad(bucketlums[i])
 
 					td = document.createElement('td')
 					var subdiv = document.createElement('input')
@@ -319,7 +325,11 @@ function themer() {
 						}
 					})(name))
 					subdivs.push(subdiv)
+					var lumdiv = document.createElement('div');
+					lumdiv.className = 'themer-lum'
+					lumdivs.push(lumdiv)
 					td.appendChild(subdiv)
+					//td.appendChild(lumdiv)
 					tr.appendChild(td)
 				}
 
@@ -329,10 +339,19 @@ function themer() {
 
 					var max = subdivs.length
 					for(var i = 0; i < colorbuckets; i++) {
-						var name = v+"-"+Math.round((i+1) / (colorbuckets+1) * 100)
+						var name = v+"-"+numpad(bucketlums[i])
 
-						var lum = (i + 1) / (colorbuckets + 1)
-						var newhsl = [hsl[0], hsl[1], lum]
+//						var txtname = name + "-txt"
+//						var bigname = name + "-big"
+
+						var light = bucketlums[i] / 100
+						var newhsl = [hsl[0], hsl[1], light]
+
+						newhsl = hsl_set_luma(newhsl, light)
+
+//						var newtxthsl = hsl_set_contrast(newhsl, 7)
+//						var newbighsl = hsl_set_contrast(newhsl, 4.5)
+
 						var defaultcss = rgb2css(hsl2rgb(newhsl))
 						var newcss = defaultcss
 
@@ -353,6 +372,7 @@ function themer() {
 						}
 
 						subdivs[i].value = newcss
+						lumdivs[i].innerHTML = Math.round(rgb2lum(css2rgb(newcss)) * 100);
 					}
 				}
 
@@ -363,7 +383,7 @@ function themer() {
 				input.addEventListener('change', coloronchange)
 				recolor(val)
 			} else {
-				td.setAttribute('colspan', 10)
+				td.setAttribute('colspan', colorbuckets + 1)
 				input.className = 'themer-text'
 			}
 			input.setAttribute('value', val)
@@ -509,6 +529,86 @@ function rgb2hsl(rgb) {
 	return [ h, s, l ];
 }
 
+// https://www.msfw.com/Services/ContrastRatioCalculator
+function rgb2lum(rgb) {
+	var r = (rgb[0] <= 0.03928) ? rgb[0]/12.92 : Math.pow(((rgb[0] + 0.055)/1.055), 2.4)
+	var g = (rgb[1] <= 0.03928) ? rgb[1]/12.92 : Math.pow(((rgb[1] + 0.055)/1.055), 2.4)
+	var b = (rgb[2] <= 0.03928) ? rgb[2]/12.92 : Math.pow(((rgb[2] + 0.055)/1.055), 2.4)
+	return (0.2126 * r + 0.7152 * g + 0.0722 * b)
+}
+// https://www.msfw.com/Services/ContrastRatioCalculator
+// range is 1-21:1
+// normal text:
+//   < 4.5:  fail
+//   < 7:    AA
+// large text:
+//   < 3:    fail
+//   < 4.5:  AA
+function rgbcontrast(c1, c2) {
+	var l1 = rgb2lum(c1)
+	var l2 = rgb2lum(c2)
+	//return Math.round((Math.max(l1, l2) + 0.05)/(Math.min(l1, l2) + 0.05)*10)/10;
+	return Math.max(l1, l2) / Math.min(l1, l2)
+}
+
+// stupidest function ever, i just don't know how to invert rgb2lum() at the moment
+function hsl_set_luma(hsl, luma) {
+	// brute force style. UGH.
+
+	var step = 0.001
+
+	var v = [hsl[0], hsl[1], hsl[2]]
+	var l = rgb2lum(hsl2rgb(v))
+	if(l > luma) {
+		while(l > luma && v[2] > step) {
+			v[2] -= step
+			l = rgb2lum(hsl2rgb(v))
+		}
+		return v
+	}
+	if(l < luma) {
+		while(l < luma && v[2] < (1 - step)) {
+			v[2] += step
+			l = rgb2lum(hsl2rgb(v))
+		}
+		return v
+	}
+	return v
+}
+// another stupid function to choose a good contrasting text color
+function hsl_set_contrast(hsl, contrast) {
+	var step = 0.001
+
+	var ol = rgb2lum(hsl2rgb(hsl))
+
+	var v = [hsl[0], hsl[1], hsl[2]]
+	var l = ol
+	var c = 0
+
+	//console.log(ol)
+
+	if(ol > 0.5) {
+		while(c < contrast && v[2] > step) {
+			v[2] -= step
+			l = rgb2lum(hsl2rgb(v))
+			c = Math.max(l, ol) / Math.min(l, ol)
+			if(isNaN(c) || !isFinite(c)) {
+				c = 0
+			}
+		}
+	} else {
+		while(c < contrast && v[2] < (1 - step)) {
+			v[2] += step
+			l = rgb2lum(hsl2rgb(v))
+			c = Math.max(l, ol) / Math.min(l, ol)
+			if(isNaN(c) || !isFinite(c)) {
+				c = 0
+			}
+		}
+	}
+	return v
+}
+
 function css2rgb(s) {
 	if(s.length < 1) {
 		return
@@ -541,6 +641,12 @@ function float2hex(v) {
 	return ('0'+v.toString(16)).slice(-2)
 }
 
+function numpad(v) {
+	if(v >= 100) {
+		return v.toString(10)
+	}
+	return ('0'+v.toString(10)).slice(-2)
+}
 
 function tests() {
 	var css2hsltests = [
@@ -596,6 +702,16 @@ function tests() {
 	console.log(hsl2rgb(rgb2hsl([0, 1, 0])))
 	console.log(hsl2rgb(rgb2hsl([0, 0, 1])))
 */	
+
+	console.log(
+		rgb2css(
+			hsl2rgb(
+				hsl_set_contrast(
+					rgb2hsl(
+						css2rgb("#0077cc")
+					),
+					3
+				))))
 }
 
 tests()
