@@ -717,3 +717,5 @@ function tests() {
 tests()
 
 })()
+
+themer();
